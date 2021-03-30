@@ -1,0 +1,102 @@
+
+CREATE TABLE [dbo].[tblSCH](
+	[SCHCode] [INT] NULL,
+	[CateSC] [INT] NULL
+) ON [PRIMARY]
+GO
+
+
+SELECT * FROM dbo.tblSCH
+
+CREATE TABLE [dbo].[tblRoaster](
+	[ID] [INT] NULL,
+	[CatList] [VARCHAR](50) NULL
+) ON [PRIMARY]
+GO
+
+
+SELECT * FROM dbo.tblRoaster
+
+
+CREATE TABLE [dbo].[tblEngAlot](
+	[SCHCode] [INT] NULL,
+	[Cat] [VARCHAR](50) NULL,
+	[Seats] [INT] NULL
+) ON [PRIMARY]
+GO
+
+SELECT * FROM dbo.tblEngAlot
+
+CREATE PROCEDURE UpdateSeats
+AS
+BEGIN
+	DECLARE @totalSeats INT 
+	SELECT  @totalSeats=SUM(CateSC) FROM tblSCH
+
+	DECLARE @Counter INT
+	DECLARE @init INT
+	DECLARE @lastRoasterVal INT
+	Select TOP 1 @lastRoasterVal=ID FROM dbo.tblRoaster ORDER BY ID DESC
+	SET @init=1
+	SET @Counter=1
+
+	DECLARE @tempRoaster TABLE(ID INT IDENTITY(1,1), Catname VARCHAR(50))
+	INSERT INTO @tempRoaster(    Catname)
+	SELECT DISTINCT CatList  FROM dbo.tblRoaster
+	DECLARE @tempTableCount INT
+	SELECT @tempTableCount=COUNT(*) FROM @tempRoaster
+
+	DECLARE @SCHCOde INT, @CatCount INT, @SCHCount INT
+	SELECT TOP 1 @SCHCOde=SCHCode, @CatCount=CateSC FROM dbo.tblSCH
+	DECLARE @tempSchCount INT,@SCHCounter int
+	SET @SCHCounter=1
+	SELECT @tempSchCount=COUNT(*) FROM dbo.tblSCH
+	--Loop to insert the  schoolcode, Catname and Seatcount as 0
+	WHILE(@SCHCounter<=@tempSchCount)
+	BEGIN
+		DECLARE @tempRoastCount INT
+		SET @tempRoastCount=1
+		WHILE (@tempRoastCount<=@tempTableCount)
+		BEGIN
+			DECLARE @catName VARCHAR(50)
+			SELECT @catName=Catname FROM @tempRoaster WHERE ID=@tempRoastCount
+			INSERT INTO dbo.tblEngAlot(SCHCode,Cat,Seats		)
+				VALUES(@SCHCOde,@catName ,0)
+			SET @tempRoastCount=@tempRoastCount+1
+		END
+		SET @SCHCounter=@SCHCounter+1
+		SET @SCHCOde=@SCHCOde+1
+	END
+
+	SET @Counter=1
+	SET @SCHCOde=1
+	SET @SCHCount=1
+
+	--Loop to update the tblEngAlot for Seatcount based on roaster records
+	WHILE ( @Counter <= @totalSeats)
+	BEGIN
+		DECLARE @CatListName VARCHAR(50)
+		IF(@init=@lastRoasterVal+1)
+		BEGIN
+			SET @init=1
+		END	
+		SELECT @CatListName =catList FROM dbo.tblRoaster WHERE ID= @init 
+		SET @init=@init+1
+		
+		UPDATE dbo.tblEngAlot SET Seats=Seats+1 WHERE SCHCode=@SCHCOde AND cat=@CatListName
+
+		IF(@SCHCount=@CatCount)
+		BEGIN		
+			SET @SCHCOde=@SCHCOde+1
+			SELECT @CatCount=CateSC FROM dbo.tblSCH WHERE SCHCode=@SCHCOde		
+			SET @SCHCount=1
+		END
+		ELSE
+		BEGIN
+			SET @SCHCount=@SCHCount+1
+		END
+		SET @Counter  = @Counter  + 1	
+	END
+	SELECT * FROM dbo.tblEngAlot
+	--DELETE FROM dbo.tblEngAlot
+END
